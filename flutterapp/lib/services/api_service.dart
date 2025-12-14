@@ -335,13 +335,16 @@ class ApiService {
       params['page'] = page.toString();
 
       final uri = Uri.parse(url).replace(queryParameters: params);
-      final response = await http.get(uri, headers: _getHeaders(includeAuth: false));
+      final response = await http.get(uri, headers: _getHeaders(includeAuth: false))
+          .timeout(const Duration(seconds: timeoutDuration), onTimeout: () {
+        throw Exception('Request timeout');
+      });
 
       return await _handleResponse(response);
     } catch (e) {
       return {
         'success': false,
-        'error': 'Network error: $e',
+        'error': 'Network error: ${e.toString()}',
       };
     }
   }
