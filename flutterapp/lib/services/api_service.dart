@@ -3,10 +3,17 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8000/api'; // Change to your backend URL
+  // Backend base URL - Configure based on environment
+  static String baseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api',
+  );
   static const String apiVersion = '/v1';
 
   static String? _authToken;
+
+  // Custom exceptions for API errors
+  static const int timeoutDuration = 30; // seconds
 
   static Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -25,6 +32,8 @@ class ApiService {
     await prefs.remove('auth_token');
   }
 
+  static String? getAuthToken() => _authToken;
+
   static Map<String, String> _getHeaders({bool includeAuth = true}) {
     final headers = {
       'Content-Type': 'application/json',
@@ -40,7 +49,8 @@ class ApiService {
 
   static Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
     try {
-      final responseData = jsonDecode(response.body);
+      // Try to parse as JSON
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {
@@ -49,18 +59,42 @@ class ApiService {
           'statusCode': response.statusCode,
         };
       } else {
+        // Extract error message from response
+        String errorMessage = 'An error occurred';
+
+        if (responseData.containsKey('error')) {
+          errorMessage = responseData['error'].toString();
+        } else if (responseData.containsKey('detail')) {
+          errorMessage = responseData['detail'].toString();
+        } else if (responseData.containsKey('message')) {
+          errorMessage = responseData['message'].toString();
+        } else if (responseData is Map && responseData.isNotEmpty) {
+          // Try to extract first error from validation errors
+          final firstKey = responseData.keys.first;
+          final firstValue = responseData[firstKey];
+          if (firstValue is List && firstValue.isNotEmpty) {
+            errorMessage = firstValue[0].toString();
+          } else {
+            errorMessage = firstValue.toString();
+          }
+        }
+
         return {
           'success': false,
-          'error': responseData['error'] ?? 'An error occurred',
+          'error': errorMessage,
           'statusCode': response.statusCode,
           'details': responseData,
         };
       }
     } catch (e) {
+      // Failed to parse as JSON
       return {
         'success': false,
-        'error': 'Failed to parse response: $e',
+        'error': response.statusCode >= 500
+            ? 'Server error: ${response.statusCode}'
+            : 'Invalid response format',
         'statusCode': response.statusCode,
+        'raw_body': response.body,
       };
     }
   }
