@@ -4,13 +4,10 @@ class Institution {
   final String institutionType;
   final String location;
   final String description;
-  final String? phone;
-  final String? email;
-  final String? website;
+  final String phone;
+  final String email;
+  final String website;
   final bool isActive;
-  final int departmentCount;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   Institution({
     required this.id,
@@ -18,13 +15,10 @@ class Institution {
     required this.institutionType,
     required this.location,
     required this.description,
-    this.phone,
-    this.email,
-    this.website,
+    required this.phone,
+    required this.email,
+    required this.website,
     required this.isActive,
-    required this.departmentCount,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
   factory Institution.fromJson(Map<String, dynamic> json) {
@@ -34,17 +28,10 @@ class Institution {
       institutionType: json['institution_type'] ?? '',
       location: json['location'] ?? '',
       description: json['description'] ?? '',
-      phone: json['phone'],
-      email: json['email'],
-      website: json['website'],
+      phone: json['phone'] ?? '',
+      email: json['email'] ?? '',
+      website: json['website'] ?? '',
       isActive: json['is_active'] ?? true,
-      departmentCount: json['department_count'] ?? 0,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'].toString())
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'].toString())
-          : DateTime.now(),
     );
   }
 
@@ -59,65 +46,58 @@ class Institution {
       'email': email,
       'website': website,
       'is_active': isActive,
-      'department_count': departmentCount,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
     };
   }
 }
 
-class Department {
+class Course {
   final int id;
-  final int institution;
-  final String institutionName;
   final String name;
+  final String code;
+  final int department;
+  final String departmentName;
+  final String level;
   final String description;
-  final String? headOfDepartment;
+  final int durationMonths;
   final bool isActive;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
-  Department({
+  Course({
     required this.id,
-    required this.institution,
-    required this.institutionName,
     required this.name,
+    required this.code,
+    required this.department,
+    required this.departmentName,
+    required this.level,
     required this.description,
-    this.headOfDepartment,
+    required this.durationMonths,
     required this.isActive,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
-  factory Department.fromJson(Map<String, dynamic> json) {
-    return Department(
+  factory Course.fromJson(Map<String, dynamic> json) {
+    return Course(
       id: json['id'] ?? 0,
-      institution: json['institution'] ?? 0,
-      institutionName: json['institution_name'] ?? '',
       name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      department: json['department'] ?? 0,
+      departmentName: json['department_name'] ?? '',
+      level: json['level'] ?? '',
       description: json['description'] ?? '',
-      headOfDepartment: json['head_of_department'],
+      durationMonths: json['duration_months'] ?? 0,
       isActive: json['is_active'] ?? true,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'].toString())
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'].toString())
-          : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'institution': institution,
-      'institution_name': institutionName,
       'name': name,
+      'code': code,
+      'department': department,
+      'department_name': departmentName,
+      'level': level,
       'description': description,
-      'head_of_department': headOfDepartment,
+      'duration_months': durationMonths,
       'is_active': isActive,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
     };
   }
 }
