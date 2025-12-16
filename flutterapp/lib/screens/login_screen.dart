@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/institution_provider.dart';
+import '../models/institution.dart';
 import '../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,11 +22,33 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   final _regNumberController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  Institution? _selectedInstitution;
+  Course? _selectedCourse;
+  String _selectedLevel = 'degree';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInstitutions();
+  }
+
+  Future<void> _loadInstitutions() async {
+    final institutionProvider = context.read<InstitutionProvider>();
+    await institutionProvider.fetchInstitutions();
+  }
+
+  Future<void> _loadCourses() async {
+    final institutionProvider = context.read<InstitutionProvider>();
+    await institutionProvider.fetchAllCourses();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _nameController.dispose();
     _regNumberController.dispose();
     _phoneController.dispose();
@@ -46,8 +70,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = false);
 
-    if (!success) {
-      _showError('Login failed. Please try again.');
+    if (success) {
+      _showSuccess('Login successful!');
+    } else {
+      final authProvider = context.read<AuthProvider>();
+      _showError(authProvider.errorMessage ?? 'Login failed');
     }
   }
 
@@ -55,35 +82,48 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty ||
         _regNumberController.text.isEmpty ||
-        _phoneController.text.isEmpty) {
-      _showError('Please fill in all fields');
+        _phoneController.text.isEmpty ||
+        _selectedInstitution == null ||
+        _selectedCourse == null) {
+      _showError('Please fill in all fields and select institution/course');
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      _showError('Passwords do not match');
       return;
     }
 
     setState(() => _isLoading = true);
-    
+
+    final nameParts = _nameController.text.split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'User';
+
     final success = await context.read<AuthProvider>().register(
       username: _emailController.text,
       email: _emailController.text,
       password: _passwordController.text,
-      password2: _passwordController.text,
-      firstName: _nameController.text.split(' ').first,
-      lastName: _nameController.text.split(' ').skip(1).join(' ').isEmpty
-        ? 'User'
-        : _nameController.text.split(' ').skip(1).join(' '),
+      password2: _confirmPasswordController.text,
+      firstName: firstName,
+      lastName: lastName,
       registrationNumber: _regNumberController.text,
-      institution: 1,
-      course: 1,
-      academicLevel: 'degree',
+      institution: _selectedInstitution!.id,
+      course: _selectedCourse!.id,
+      academicLevel: _selectedLevel,
       phone: _phoneController.text,
       preferredLocation: 'Dar es Salaam',
     );
 
     setState(() => _isLoading = false);
 
-    if (!success) {
-      _showError('Registration failed. Please try again.');
+    if (success) {
+      _showSuccess('Registration successful!');
+    } else {
+      final authProvider = context.read<AuthProvider>();
+      _showError(authProvider.errorMessage ?? 'Registration failed');
     }
   }
 
@@ -92,6 +132,15 @@ class _LoginScreenState extends State<LoginScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: AppTheme.errorColor,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.primaryColor,
       ),
     );
   }
@@ -135,9 +184,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         'SITMS',
                         style: Theme.of(context).textTheme.displaySmall?.copyWith(
                           fontWeight: FontWeight.w900,
-                          background: Paint()
-                            ..strokeWidth = 0.3
-                            ..color = AppTheme.primaryColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -235,6 +281,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
+                                strokeWidth: 2,
                               ),
                             )
                           : const Text('Login to Continue'),
@@ -272,6 +319,109 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildPasswordField(),
+                  const SizedBox(height: 16),
+                  _buildConfirmPasswordField(),
+                  const SizedBox(height: 16),
+                  // Institution Dropdown
+                  Text(
+                    'Institution',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Consumer<InstitutionProvider>(
+                    builder: (context, provider, _) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: DropdownButton<Institution>(
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: Text('Select Institution', style: Theme.of(context).textTheme.bodyMedium),
+                          value: _selectedInstitution,
+                          items: provider.institutions.map((Institution inst) {
+                            return DropdownMenuItem<Institution>(
+                              value: inst,
+                              child: Text(inst.name),
+                            );
+                          }).toList(),
+                          onChanged: (Institution? newValue) {
+                            if (newValue != null) {
+                              setState(() => _selectedInstitution = newValue);
+                              _loadCourses();
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Course Dropdown
+                  Text(
+                    'Course',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Consumer<InstitutionProvider>(
+                    builder: (context, provider, _) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderColor),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: DropdownButton<Course>(
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: Text('Select Course', style: Theme.of(context).textTheme.bodyMedium),
+                          value: _selectedCourse,
+                          items: provider.courses.map((Course course) {
+                            return DropdownMenuItem<Course>(
+                              value: course,
+                              child: Text(course.name),
+                            );
+                          }).toList(),
+                          onChanged: (Course? newValue) {
+                            setState(() => _selectedCourse = newValue);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Academic Level Dropdown
+                  Text(
+                    'Academic Level',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.borderColor),
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      value: _selectedLevel,
+                      items: const [
+                        DropdownMenuItem(value: 'diploma', child: Text('Diploma')),
+                        DropdownMenuItem(value: 'degree', child: Text('Bachelor Degree')),
+                        DropdownMenuItem(value: 'masters', child: Text('Masters')),
+                      ],
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => _selectedLevel = newValue);
+                        }
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   // Register Button
                   SizedBox(
@@ -284,6 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
+                                strokeWidth: 2,
                               ),
                             )
                           : const Text('Create Account'),
@@ -291,29 +442,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or continue with',
-                        style: Theme.of(context).textTheme.bodySmall,
+                if (_isLogin) ...[
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: AppTheme.borderColor)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or continue with',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                    ),
-                    Expanded(child: Divider(color: AppTheme.borderColor)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                // Social Login
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildSocialButton('Google', Icons.g_mobiledata),
-                    _buildSocialButton('Apple', Icons.apple),
-                  ],
-                ),
+                      Expanded(child: Divider(color: AppTheme.borderColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Social Login
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildSocialButton('Google', Icons.g_mobiledata),
+                      _buildSocialButton('Apple', Icons.apple),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -363,6 +516,34 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: _obscurePassword,
           decoration: InputDecoration(
             hintText: 'Enter your password',
+            prefixIcon: const Icon(Icons.lock_outlined, color: AppTheme.textSecondary),
+            suffixIcon: GestureDetector(
+              onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+              child: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfirmPasswordField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Confirm Password',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _confirmPasswordController,
+          obscureText: _obscurePassword,
+          decoration: InputDecoration(
+            hintText: 'Confirm your password',
             prefixIcon: const Icon(Icons.lock_outlined, color: AppTheme.textSecondary),
             suffixIcon: GestureDetector(
               onTap: () => setState(() => _obscurePassword = !_obscurePassword),

@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/organization_provider.dart';
 import 'providers/application_provider.dart';
 import 'providers/student_provider.dart';
+import 'providers/institution_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/api_service.dart';
 
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StudentProvider()),
         ChangeNotifierProvider(create: (_) => OrganizationProvider()),
         ChangeNotifierProvider(create: (_) => ApplicationProvider()),
+        ChangeNotifierProvider(create: (_) => InstitutionProvider()),
       ],
       child: MaterialApp(
         title: 'SITMS - Smart Industrial Training Matching',
