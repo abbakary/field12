@@ -461,8 +461,8 @@ class NotificationAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
-    def has_add_permission(self, request):
+
+    def has_add_permission(self, request, obj=None):
         return False
 
 
